@@ -77,7 +77,7 @@ class AbstractData(object):
 
         serial = client.changelog_last_serial()
         logger.info('serial is {}'.format(serial))
-        for package in packages[53481:]:
+        for package in packages: # [53710:]
             self.set_metadata_from_remote(package)
         self.set_serial(serial)
 
@@ -85,17 +85,19 @@ class AbstractData(object):
 
     def get_remote_metadata(self, package):
         url = 'https://pypi.python.org/pypi/{}/json'.format(urllib.quote(package, safe=''))
-        result = None
-        print("fetch package %s" % package)
+        # print("fetch package %s" % package)
 
+        result = None
+        # import pdb; pdb.set_trace()	# put this where you want to start tracing
         while result is None:
-            logging.info("fetchi package %s" % package)
+            # logging.debug("fetchi package %s" % package)
 
             try:
                 response = urllib2.urlopen(url)
+                result = "DONE"
             except urllib2.HTTPError as exc:
                 if exc.code == 404:
-                    result = ERROR404
+                    return ERROR404
                 else:
                     raise
             except urllib2.URLError as exc:
