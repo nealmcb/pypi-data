@@ -6,6 +6,8 @@ import os.path
 import sys
 
 from pypi_data import FileSystemData
+import inspect
+print("inspect:" , inspect.getfile(FileSystemData))
 
 def main():
     parser = argparse.ArgumentParser()

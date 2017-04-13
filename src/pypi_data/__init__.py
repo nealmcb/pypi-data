@@ -10,8 +10,13 @@ import tempfile
 import urllib
 import urllib2
 import xmlrpclib
+import time
 
 import six
+
+ERROR404 = "404"  # Flag for missing project
+
+print "debug version"
 
 @six.add_metaclass(abc.ABCMeta)
 class AbstractData(object):
@@ -67,9 +72,12 @@ class AbstractData(object):
         logger.info('Listing packages')
         packages = client.list_packages()
         logger.info('{} packages available'.format(len(packages)))
+        with open('pypipackagelist', 'w') as l:
+            l.write(str(packages))
 
         serial = client.changelog_last_serial()
-        for package in packages:
+        logger.info('serial is {}'.format(serial))
+        for package in packages[53481:]:
             self.set_metadata_from_remote(package)
         self.set_serial(serial)
 
@@ -77,13 +85,26 @@ class AbstractData(object):
 
     def get_remote_metadata(self, package):
         url = 'https://pypi.python.org/pypi/{}/json'.format(urllib.quote(package, safe=''))
-        try:
-            response = urllib2.urlopen(url)
-        except urllib2.HTTPError as exc:
-            if exc.code == 404:
-                return None
-            else:
-                raise
+        result = None
+        print("fetch package %s" % package)
+
+        while result is None:
+            logging.info("fetchi package %s" % package)
+
+            try:
+                response = urllib2.urlopen(url)
+            except urllib2.HTTPError as exc:
+                if exc.code == 404:
+                    result = ERROR404
+                else:
+                    raise
+            except urllib2.URLError as exc:
+                TIMEOUT = 30
+                # FIXME: switch to custom logger via self._get_logger(), not root logger?
+                print("package %s: sleeping %d seconds and retrying due to %s" % (package, TIMEOUT, exc))
+                logging.error("package %s: sleeping %d seconds and retrying due to %s" % (package, TIMEOUT, exc))
+                time.sleep(TIMEOUT)
+
         return json.loads(response.read())
 
     def set_metadata_from_file(self, package, fp):
@@ -92,7 +113,7 @@ class AbstractData(object):
     def set_metadata_from_remote(self, package):
         logger = self._get_logger()
         metadata = self.get_remote_metadata(package)
-        if metadata is not None:
+        if metadata != ERROR404:
             logger.info('{}: updating metadata'.format(package))
             self.set_metadata(package, metadata)
         else:
@@ -151,6 +172,7 @@ class AbstractData(object):
 
 class FileSystemData(AbstractData):
     def __init__(self, path):
+        print "fsd init"
         self.path = path
 
     def _metadata_exists(self, package):
